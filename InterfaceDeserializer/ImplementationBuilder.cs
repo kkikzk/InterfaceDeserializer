@@ -8,16 +8,16 @@ namespace InterfaceDeserializer
 {
     internal class ImplementationBuilder
     {
-        public Dictionary<Type, Type> TypeMap { get; } = new Dictionary<Type, Type>();
-
         private readonly AssemblyName _assemblyName;
         private readonly AssemblyBuilder _assemblyBuilder;
         private readonly ModuleBuilder _moduleBuilder;
         private readonly List<string> _typeNames = new List<string>();
 
+        public Dictionary<Type, Type> TypeMap { get; } = new Dictionary<Type, Type>();
+
         public ImplementationBuilder()
         {
-            _assemblyName = new AssemblyName("<>_ImplementationAssembly");
+            _assemblyName = new AssemblyName($"<>_{Guid.NewGuid()}_Assembly");
             _assemblyBuilder = AssemblyBuilder.DefineDynamicAssembly(_assemblyName, AssemblyBuilderAccess.Run);
             _moduleBuilder = _assemblyBuilder.DefineDynamicModule("<>_Implementations");
         }
@@ -36,27 +36,25 @@ namespace InterfaceDeserializer
             return true;
         }
 
-        public Type GenerateType<T>() => GenerateType(typeof(T));
-
-        public Type GenerateType(Type interfaceType)
+        public Type GenerateType<T>()
         {
-            if (!CanBuild(interfaceType))
+            if (!CanBuild(typeof(T)))
             {
-                throw new ArgumentException($"Cannot build type for {interfaceType}");
+                throw new ArgumentException($"Cannot build type for {typeof(T).Name}");
             }
 
-            if (TypeMap.TryGetValue(interfaceType, out var generatedType))
+            if (TypeMap.TryGetValue(typeof(T), out var generatedType))
             {
                 return generatedType;
             }
 
-            var typeBuilder = _moduleBuilder.DefineType(MakeImplName(interfaceType),
-                TypeAttributes.Class | TypeAttributes.NotPublic, typeof(object), new Type[] { interfaceType });
+            var typeBuilder = _moduleBuilder.DefineType(MakeImplName(typeof(T)),
+                TypeAttributes.Class | TypeAttributes.NotPublic, typeof(object), new Type[] { typeof(T) });
             var constructorInfo = typeof(SerializableAttribute).GetConstructor(new Type[] { });
             var attrBuilder = new CustomAttributeBuilder(constructorInfo, new object[] { });
             typeBuilder.SetCustomAttribute(attrBuilder);
 
-            var properties = GetProperties(interfaceType);
+            var properties = GetProperties(typeof(T));
             var fields = new List<FieldBuilder>();
 
             foreach (var property in properties)
@@ -66,7 +64,7 @@ namespace InterfaceDeserializer
 
             GenerateConstructor(typeBuilder, fields, properties);
             var type = typeBuilder.CreateType();
-            TypeMap.Add(interfaceType, type);
+            TypeMap.Add(typeof(T), type);
             return type;
         }
 

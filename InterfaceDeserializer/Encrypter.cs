@@ -42,15 +42,19 @@ namespace InterfaceDeserializer
             using var am = new AesManaged();
             using var decryptor = am.CreateDecryptor(key, iv);
             using var inStream = new MemoryStream(src, false);
-            using var outStream = new MemoryStream();
-            using var cs = new CryptoStream(inStream, decryptor, CryptoStreamMode.Read);
-            var buffer = new byte[4096];
-            var len = 0;
-            while ((len = cs.Read(buffer, 0, 4096)) > 0)
+            using (var outStream = new MemoryStream())
             {
-                outStream.Write(buffer, 0, len);
+                using (var cs = new CryptoStream(inStream, decryptor, CryptoStreamMode.Read))
+                {
+                    var buffer = new byte[4096];
+                    var len = 0;
+                    while ((len = cs.Read(buffer, 0, 4096)) > 0)
+                    {
+                        outStream.Write(buffer, 0, len);
+                    }
+                }
+                return outStream.ToArray();
             }
-            return outStream.ToArray();
         }
     }
 }

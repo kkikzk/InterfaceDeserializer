@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Reflection;
 using System.Runtime.Serialization;
 
 namespace InterfaceDeserializer
@@ -8,29 +7,23 @@ namespace InterfaceDeserializer
     {
         private static readonly ImplementationBuilder _implementationBuilder = new ImplementationBuilder();
 
-        internal Type Type { get; }
-        internal MemberInfo[] AllFields { get; }
-
-        internal InterfaceBuilder(Type type)
+        internal static T Create<T>(object[] fieldValues)
         {
-            lock (this)
+            Type type = null;
+            lock (_implementationBuilder)
             {
-                if (_implementationBuilder.TypeMap.TryGetValue(type, out var generatedType))
+                if (_implementationBuilder.TypeMap.TryGetValue(typeof(T), out var generatedType))
                 {
-                    Type = generatedType;
+                    type = generatedType;
                 }
                 else
                 {
-                    Type = _implementationBuilder.GenerateType(type);
+                    type = _implementationBuilder.GenerateType<T>();
                 }
             }
-            AllFields = FormatterServices.GetSerializableMembers(Type, new StreamingContext());
-        }
-
-        internal object Create(object[] fieldValues)
-        {
-            var result = FormatterServices.GetUninitializedObject(Type);
-            return FormatterServices.PopulateObjectMembers(result, AllFields, fieldValues);
+            var allFields = FormatterServices.GetSerializableMembers(type, new StreamingContext());
+            var result = FormatterServices.GetUninitializedObject(type);
+            return (T)FormatterServices.PopulateObjectMembers(result, allFields, fieldValues);
         }
     }
 }
